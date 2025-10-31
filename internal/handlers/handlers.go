@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/Der1an0/6sprint/internal/service"
@@ -15,22 +16,40 @@ import (
 // IndexHandler возвращает HTML форму
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
 
-	// Читаем и отдаем HTML файл
-	html, err := os.ReadFile("a:/6/6sprint/index.html")
-	if err != nil {
-		log.Printf("Ошибка чтения index.html: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
+	// Пробуем найти index.html в разных местах
+	var html []byte
+	var err error
 
+	// Сначала пробуем текущую директорию
+	html, err = os.ReadFile("index.html")
+	if err != nil {
+		// Пробуем абсолютный путь
+		_, filename, _, _ := runtime.Caller(0)
+		dir := filepath.Dir(filename)
+		possiblePaths := []string{
+			"index.html",
+			filepath.Join(dir, "index.html"),
+			filepath.Join(dir, "..", "index.html"),
+			filepath.Join(dir, "..", "..", "index.html"),
+			filepath.Join(".", "index.html"),
+		}
+
+		for _, path := range possiblePaths {
+			html, err = os.ReadFile(path)
+			if err == nil {
+				break
+			}
+		}
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write(html)
